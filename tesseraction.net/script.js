@@ -18,12 +18,14 @@ const lines = [[0,1],[0,2],[0,4],[0,5],[1,6],[1,7],[1,3],[2,3],[2,7],[2,8],[3,9]
 //index here represents a board position, the value represent board positions that are neighbors
 const neighbors = [[1,2,4,5],[0,3,6,7],[0,3,7,8],[1,2,9,10],[0,6,7,11],[0,7,8,11],[1,4,9,12],[1,2,4,5,9,10,12,13],[2,5,10,13],[3,6,7,14],[3,7,8,14],[4,5,12,13],[6,7,11,14],[7,8,11,14],[9,10,12,13]];
 
+//t_space defines how a piece will be isomorphically transformed when it arrives at this position
 const t_space = [0,0,0,1,4,6,0,2,0,7,5,3,0,0,0]
+
 //this indicates who is occupying a positions
 //first 15 elements represent the positions on the board.
 //the next 7 are player one starting positions;
 //the next 7, player two.
-//a value of 0 indicates the position in empty; 1 is player one occupation; -1 is player two occupation
+//each position hold 4 values. the sum of their values determines who owns the piece (as well as the color). positive: player one. negative: player two. zero: both.
 var occupations = [[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[0,0,0,0],[1,1,1,0],[1,1,1,-1],[1,0,0,1],[1,1,0,0],[1,-1,0,1],[1,1,-1,0],[1,0,0,0],[-1,-1,-1,0],[-1,-1,-1,1],[-1,0,0,-1],[-1,-1,0,0],[-1,1,0,-1],[-1,-1,1,0],[-1,0,0,0]];
 
 //the selected list represents which piece has been selected to be moved... should only have one nonzero value at a time, sometimes none
@@ -39,9 +41,9 @@ pixels.fill([0,0,0,0]);
 var expected_play = [1,0];
 var turn = 1;
 
-function calculate_pixels(event){
+function calculate_pixels(size){
 	
-	cHeight=Math.min(event.width, event.height);
+	cHeight=size;
     cellSize = cHeight / 29;
 
     //positions
@@ -151,7 +153,9 @@ function create_rectangle(x1, y1, x2, y2, outline, fill, width){
 	ctx.fillStyle = fill;
 	ctx.rect(x1, y1, x2, y2);
 	ctx.stroke();
-	ctx.fill();
+	if(fill !== false){
+		ctx.fill();
+	}
 }
 
 function create_arc(x1, y1, x2, y2, start, end, width, clockwise){
@@ -225,15 +229,23 @@ function draw(){
 		}
     }
 	
-	//draw which positions are selected
+	//turn has 3 distinct positbilities due to output rounding
     if(turn == 1){
 		color = "white";
+	} else if(turn == 0) {
+		color = "#adadad";
 	} else {
 		color = "black";
 	}
+	
+	//draw which positions are selected
 	for(var i=0; i < selected.length; i++){
 		if(selected[i] == 1){
 			create_circle(pixels[i][0]+pixels[74][2]/4, pixels[i][1]+pixels[74][2]/4, pixels[74][2]*1.25, pixels[74][1], color);
+		}
+		if(selected[i] == -1){
+			
+			create_rectangle(pixels[i][0]-cellSize, pixels[i][1]-cellSize, cellSize*2.5,  cellSize*2.5, color, false, pixels[74][1]);
 		}
 	}
 	
@@ -242,12 +254,42 @@ function draw(){
 	create_circle(0,cHeight,cellSize*2, cellSize, color);
 	create_circle(cHeight,0,cellSize*2, cellSize, color);
 	create_circle(cHeight,cHeight,cellSize*2, cellSize, color);
+	
+	//normally expected_play should only be either [1,0] or [0,1]
+	//but can also be in the strange states of [0,-1], [-1,-1], [-1,0], or [1,1]
+	
+	//draw expected_play[0]
+	if(expected_play[0] == -1){
+		create_circle(0,0,cellSize/2, cellSize/4, color);
+		create_circle(0,cHeight,cellSize/2, cellSize/4, color);
+		create_circle(cHeight,0,cellSize/2, cellSize/4, color);
+		create_circle(cHeight,cHeight,cellSize/2, cellSize/4, color);
+	} else if(expected_play[0] == 1){
+		create_circle(0,0,cellSize, cellSize/4, color);
+		create_circle(0,cHeight,cellSize, cellSize/4, color);
+		create_circle(cHeight,0,cellSize, cellSize/4, color);
+		create_circle(cHeight,cHeight,cellSize, cellSize/4, color);
+	}
+	
+	//draw expected_play[1]
+	if(expected_play[1] == -1){
+		create_circle(0,0,cellSize*3.5, cellSize/4, color);
+		create_circle(0,cHeight,cellSize*3.5, cellSize/4, color);
+		create_circle(cHeight,0,cellSize*3.5, cellSize/4, color);
+		create_circle(cHeight,cHeight,cellSize*3.5, cellSize/4, color);
+	} else if(expected_play[1] == 1){
+		create_circle(0,0,cellSize*3, cellSize/4, color);
+		create_circle(0,cHeight,cellSize*3, cellSize/4, color);
+		create_circle(cHeight,0,cellSize*3, cellSize/4, color);
+		create_circle(cHeight,cHeight,cellSize*3, cellSize/4, color);
+	}
 }
 
 //loop through the positions and see if mouse click was on a board position
 function click(event){
+	const finger = cellSize;
 	for(var i=0; i < 29; i++){
-        if(event.x > pixels[i][0]-pixels[74][0] && event.x < pixels[i][2]+pixels[74][0] && event.y > pixels[i][1]-pixels[74][0] && event.y < pixels[i][3]+pixels[74][0]){
+        if(event.x > pixels[i][0]-finger && event.x < pixels[i][2]+finger && event.y > pixels[i][1]-finger && event.y < pixels[i][3]+finger){
             //clicked registered on the i'th position, process it
             clicked(i);
             break;
@@ -321,10 +363,18 @@ function canvasMouseDown(event) {
 const sess = new onnx.InferenceSession();
 const loadingModelPromise = sess.loadModel("tesseraction.onnx");
 
-
+function resizeCanvas(){
+	const width = window.innerWidth;
+	const height = window.innerHeight;
+	const size = Math.min(width, height) - 38;
+	
+	canvas.width = size;
+	canvas.height = size;
+	calculate_pixels(size);
+}
 
 loadingModelPromise.then(() => {
-	calculate_pixels({width:640,height:640});
-	//canvas.addEventListener("resize", calculate_pixels);
+	resizeCanvas();
+	window.addEventListener("resize", resizeCanvas);
 	canvas.addEventListener("mousedown", canvasMouseDown);
 })
